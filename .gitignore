@@ -1,0 +1,14 @@
+# Agent state directories
+.agents/
+.pi/
+.claude/
+.planning/
+.codex/
+
+# OS
+.DS_Store
+
+# Editor
+*.swp
+*.swo
+*~

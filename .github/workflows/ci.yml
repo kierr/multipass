@@ -1,0 +1,93 @@
+name: CI
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, ready_for_review]
+  push:
+    branches: [main]
+    tags: ['v*']
+  schedule:
+    - cron: '37 5 * * 1'
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: read
+  actions: read
+
+jobs:
+  ci:
+    name: CI
+    if: |
+      github.event_name != 'pull_request' ||
+      github.event.pull_request.draft == false
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+      - name: Validate plugin structure
+        run: |
+          set -euo pipefail
+          errors=0
+          if [ ! -f .claude-plugin/plugin.json ]; then
+            echo "::error::Missing .claude-plugin/plugin.json"
+            errors=$((errors + 1))
+          fi
+          if [ ! -d skills ]; then
+            echo "::error::Missing skills/ directory"
+            errors=$((errors + 1))
+          fi
+          if [ ! -d agents ]; then
+            echo "::error::Missing agents/ directory"
+            errors=$((errors + 1))
+          fi
+          for skill in skills/*/; do
+            if [ -d "$skill" ] && [ ! -f "${skill}SKILL.md" ]; then
+              echo "::warning::Missing SKILL.md in ${skill}"
+            fi
+          done
+          if [ "$errors" -gt 0 ]; then
+            echo "Plugin structure validation failed with ${errors} errors"
+            exit 1
+          fi
+          echo "Plugin structure validation passed"
+
+      - name: Validate plugin.json
+        run: |
+          set -euo pipefail
+          python3 -c "
+          import json, sys
+          with open('.claude-plugin/plugin.json') as f:
+              p = json.load(f)
+          for k in ['name', 'version', 'description']:
+              if k not in p:
+                  print(f'::error::plugin.json missing required field: {k}')
+                  sys.exit(1)
+          print(f'Plugin: {p[\"name\"]} v{p[\"version\"]}')
+          "
+
+      - name: Check review contract consistency
+        run: |
+          set -euo pipefail
+          CUSTOMIZED="access-control-multipass api-design-multipass auth-multipass caching-correctness-multipass data-contract-multipass debt-inventory-multipass deduplication-multipass dependency-multipass event-driven-multipass feature-flags-multipass k8s-multipass migration-safety-multipass mise-multipass release-multipass substrate-multipass type-safety-multipass"
+          ref=$(sed -n '/^## Review Contract/,/^# [^#]/p' skills/security-multipass/SKILL.md | head -n -1)
+          errors=0
+          for skill in skills/*/SKILL.md; do
+            name=$(basename "$(dirname "$skill")")
+            echo "$CUSTOMIZED" | grep -qw "$name" && continue
+            [[ "$name" == "run" || "$name" == "multipass-configure" || "$name" == "new-multipass-lens" ]] && continue
+            cur=$(sed -n '/^## Review Contract/,/^# [^#]/p' "$skill" | head -n -1)
+            if [ "$ref" != "$cur" ]; then
+              echo "::error::$name review contract has drifted from security-multipass reference"
+              errors=$((errors + 1))
+            fi
+          done
+          [ "$errors" -gt 0 ] && exit 1
+          echo "Review contract consistency check passed"

@@ -1,0 +1,16 @@
+{
+  "name": "multipass",
+  "owner": {
+    "name": "kierr"
+  },
+  "plugins": [
+    {
+      "name": "multipass",
+      "source": {
+        "source": "github",
+        "repo": "kierr/multipass"
+      },
+      "description": "Concurrent multi-lens code review. Each review skill runs as a dedicated agent with its own context window and persistent project memory."
+    }
+  ]
+}
