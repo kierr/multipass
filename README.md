@@ -1,6 +1,8 @@
-# Multipass Plugin
+# Leeloo's Multipass
 
-Concurrent multi-lens code review for Claude Code. Each review specialist runs as a dedicated agent with its own context window and persistent project memory.
+> NOTE: I've moved to `pi` and in `kierr/pi` I have native tooling for multipass instead.
+
+Concurrent multi-lens code review for Claude Code and OpenCode. Each review specialist runs as a dedicated agent with its own context window and persistent project memory.
 
 ## What's Included
 
